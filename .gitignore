@@ -16,5 +16,7 @@ bin/
 
 # DUB
 .dub/
+docs.json
+__dummy.html
 dub.selections.json
 dub.userprefs
