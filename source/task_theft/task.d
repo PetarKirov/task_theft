@@ -7,17 +7,17 @@ auto task(alias Fun, Args...)(Args args)
 	return Task!(Fun, Args)(args);
 }
 
-private enum TaskStatus : ubyte
+enum TaskStatus : ubyte
 {
 	notStarted,
 	inProgress,
 	done
 }
 
-private struct VoidTask
-{
-	alias VoidFun = void function(void*);
+alias VoidFun = void function(void*);
 
+package struct VoidTask
+{
 	VoidFun executor;
 	TaskStatus taskStatus = TaskStatus.notStarted;
 

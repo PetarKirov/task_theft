@@ -15,7 +15,8 @@ void main()
 
 	auto q = make_queue!56();
 
-	//pragma(msg, q.slot);
+	// Prints: Slot size: 56LU, queue size: 1824LU
+	pragma(msg, "Slot size: ", q.Slot.sizeof, ", queue size: ", q.sizeof);
 
 	//q.add( cast(void[0])[] );
 	//q.add(5);
@@ -27,11 +28,10 @@ void main()
 
 	while (!q.empty())
 	{
-		writeln("Chshhh");
-		break;
-//		auto t = q.getAndPopFront();
-//		t.execute.writeln;
+		q.popAndExec();
 	}
+
+	"All done!".writeln();
 }
 
 float computeSomeStuff(float a, float b, float c)
