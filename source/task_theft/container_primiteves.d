@@ -1,10 +1,11 @@
 module task_theft.container_primiteves;
 
 mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
-	bool length_is_power_of_two = false)
+	alias LockFunction, bool length_is_power_of_two = false)
 {
 	import std.range.primitives : hasLength, isRandomAccessRange, ElementType;
 	import std.traits : isStaticArray;
+
 	static assert (
 		hasLength!(typeof(QueueStorage)) &&
 		(
@@ -14,8 +15,13 @@ mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
 		"QueueStorage should be a finite random-access range, not " ~
 		typeof(QueueStorage).stringof);
 
-	static assert (is(typeof(GrowthFunction())),
+	alias GrowthFuncType = void function();
+	alias LockFuncType(L) = L function();
+
+	static assert (is(typeof(&GrowthFunction) : GrowthFuncType),
 		"GrowthFunction should be callable with no arguments!");
+
+	//static assert (is(typeof(&LockFunction) : LockFuncType!L, L)); //,	"GrowthFunction should be callable with no arguments!");
 
 	alias E = ElementType!(typeof(QueueStorage));
 
@@ -31,6 +37,8 @@ mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
 		bool empty() { return !count; }
 
 		size_t length() { return count; }
+
+		size_t capacity() { return QueueStorage.length; }
 
 		auto ref E front()
 		in { assert (!empty); }
@@ -49,7 +57,7 @@ mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
 	in { assert (idx < length); }
 	body
 	{
-		auto place = (start + idx) % QueueStorage.length;
+		auto place = (start + idx) % this.capacity;
 		return QueueStorage[place];
 	}
 
@@ -59,13 +67,13 @@ mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
 		count--;
 
 		static if (length_is_power_of_two)
-			start = (start + 1) & (QueueStorage.length - 1);
+			start = (start + 1) & (this.capacity - 1);
 		else
-			start = start + 1 != QueueStorage.length ?
+			start = start + 1 != this.capacity ?
 				start + 1 : 0;
 	}
 
-	auto ref E getAndPopFront()
+	E getAndPopFront()
 	in { assert (!empty); } body
 	{
 		auto result = this.front;
@@ -77,22 +85,66 @@ mixin template QueueMix(alias QueueStorage, alias GrowthFunction,
 	in { assert (!empty); } body
 	{
 		count--;
-		end = end - 1 != 0 ? end - 1 : QueueStorage.length - 1;
+		end = end - 1 != 0 ? end - 1 : this.capacity - 1;
 	}
 
 	void pushBack()(auto ref E val)
 	{
-		if (count == QueueStorage.length)
+		if (count == this.capacity)
 			GrowthFunction();
 
 		QueueStorage[end] = val;
 		count++;
 
 		static if (length_is_power_of_two)
-			end = (end + 1) & (QueueStorage.length - 1);
+			end = (end + 1) & (this.capacity - 1);
 		else
-			end = end + 1 != QueueStorage.length ?
+			end = end + 1 != this.capacity ?
 				end + 1 : 0;
+	}
+
+	enum Side
+	{
+		front,
+		back,
+	}
+
+	void push(Side side)(auto ref E val)
+	{
+		static if (side == Side.back)
+			this.pushBack(val);
+		else
+			this.pushFront(val);
+	}
+
+	E getPop(Side side)(auto ref E val)
+	{
+		static if (side == Side.front)
+		{
+			auto result = this.front;
+			this.popFront();
+			return result;
+		}
+		else
+		{
+			auto result = this.front;
+			this.popFront();
+			return result;
+		}
+	}
+
+	static stealFrom(Side victimSide, Side stealerSide, V, S)
+		(auto ref V victim, auto ref S stealer, float profit, Side side)
+	{
+		auto victim_lock = victim.lock();
+
+		auto steal_count = cast(size_t)(victim.length * profit);
+
+		foreach (_; 0 .. steal_count)
+			stealer.push!stealerSide(
+				victim.getPop!victimSide());
+
+		// implicitly unlock the victim
 	}
 }
 
@@ -122,7 +174,9 @@ version (unittest)
 			end = length;
 		}
 
-		mixin QueueMix!(data, grow, true);
+		void lock() { }
+
+		mixin QueueMix!(data, grow, lock, true);
 	}
 
 	auto make_queue(T)(size_t initial_size)

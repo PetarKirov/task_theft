@@ -20,15 +20,15 @@ void main()
 
 	//q.add( cast(void[0])[] );
 	//q.add(5);
-	q.add(t0);
-	q.add(t1);
-	q.add(t1);
-	q.add(t2);
-	q.add(t3);
+	q.enqueue(t0);
+	q.enqueue(t1);
+	q.enqueue(t1);
+	q.enqueue(t2);
+	q.enqueue(t3);
 
 	while (!q.empty())
 	{
-		q.popAndExec();
+		q.executeNext();
 	}
 
 	"All done!".writeln();
